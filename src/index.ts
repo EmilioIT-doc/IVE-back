@@ -1,7 +1,7 @@
 import express from "express";
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 2000;
 
 //express.json()
 //es un middleware que convierte el body de las peticiones JSON en un objeto (req.body).
