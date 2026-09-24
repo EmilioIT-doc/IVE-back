@@ -1,15 +1,14 @@
 import express from "express";
+import { pool } from "./db.js";
 
 const app = express();
-const PORT = Number(process.env.PORT) || 2000;
-
-//express.json()
-//es un middleware que convierte el body de las peticiones JSON en un objeto (req.body).
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", message: "API de ive-store funcionando" });
+app.get("/api/health", async (_req, res) => {
+  const result = await pool.query("SELECT NOW() AS now");
+  res.json({ status: "ok", db: result.rows[0].now });
 });
 
 app.listen(PORT, () => {
