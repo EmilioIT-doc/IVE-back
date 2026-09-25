@@ -1,3 +1,4 @@
+import argon2 from "argon2";
 import { pool } from "../db.js";
 
 // ---------- Tipos ----------
@@ -123,12 +124,26 @@ const PRODUCTS: SeedProduct[] = [
   },
 ];
 
+// Usuarios de prueba (contraseñas SOLO para desarrollo local)
+const USERS = [
+  { email: "admin@ive.store", password: "Admin123!", firstName: "Admin", lastName: "IVE", role: "admin" },
+  { email: "demo@ive.store", password: "Demo1234!", firstName: "Demo", lastName: "Cliente", role: "customer" },
+];
+
 // ---------- Seed ----------
 async function seed() {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
+
+    for (const u of USERS) {
+      await client.query(
+        `INSERT INTO users (email, password_hash, first_name, last_name, role)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [u.email, await argon2.hash(u.password), u.firstName, u.lastName, u.role]
+      );
+    }
 
     // slug -> id, para encontrar la categoría de cada producto
     const categoryIds = new Map<string, string>();
@@ -187,7 +202,7 @@ async function seed() {
 
     await client.query("COMMIT");
     console.log(
-      `✔ Seed listo: ${categoryIds.size} categorías, ${PRODUCTS.length} productos, ${variantCount} variantes`
+      `✔ Seed listo: ${USERS.length} usuarios, ${categoryIds.size} categorías, ${PRODUCTS.length} productos, ${variantCount} variantes`
     );
   } catch (err) {
     await client.query("ROLLBACK");
