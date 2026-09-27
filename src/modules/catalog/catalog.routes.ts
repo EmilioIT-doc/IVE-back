@@ -10,3 +10,4 @@ productsRouter.get("/", controller.list);
 productsRouter.get("/filters", controller.filters);
 productsRouter.get("/:slug", controller.detail);
 productsRouter.get("/:slug/related", controller.related);
+productsRouter.post("/:slug/views", controller.registerView);

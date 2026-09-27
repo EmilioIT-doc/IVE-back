@@ -59,6 +59,9 @@ export async function insertOrder(
   o: {
     userId: string;
     subtotalCents: number;
+    discountCents: number;
+    couponId: string | null;
+    couponCode: string | null;
     shippingCents: number;
     totalCents: number;
     shippingMethod: string;
@@ -66,10 +69,12 @@ export async function insertOrder(
   }
 ): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO orders (user_id, subtotal_cents, shipping_cents, total_cents, shipping_method, shipping_address)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO orders (user_id, subtotal_cents, discount_cents, coupon_id, coupon_code,
+                         shipping_cents, total_cents, shipping_method, shipping_address)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING id`,
-    [o.userId, o.subtotalCents, o.shippingCents, o.totalCents, o.shippingMethod, JSON.stringify(o.shippingAddress)]
+    [o.userId, o.subtotalCents, o.discountCents, o.couponId, o.couponCode, o.shippingCents, o.totalCents,
+     o.shippingMethod, JSON.stringify(o.shippingAddress)]
   );
   return rows[0]!.id;
 }
@@ -106,6 +111,8 @@ export async function findOrderForUser(db: Db, userId: string, orderId: string) 
     id: string;
     status: string;
     subtotalCents: number;
+    discountCents: number;
+    couponCode: string | null;
     shippingCents: number;
     totalCents: number;
     shippingMethod: string;
@@ -113,7 +120,8 @@ export async function findOrderForUser(db: Db, userId: string, orderId: string) 
     createdAt: Date;
     paymentStatus: string | null;
   }>(
-    `SELECT o.id, o.status, o.subtotal_cents AS "subtotalCents", o.shipping_cents AS "shippingCents",
+    `SELECT o.id, o.status, o.subtotal_cents AS "subtotalCents", o.discount_cents AS "discountCents",
+            o.coupon_code AS "couponCode", o.shipping_cents AS "shippingCents",
             o.total_cents AS "totalCents", o.shipping_method AS "shippingMethod",
             o.shipping_address AS "shippingAddress", o.created_at AS "createdAt",
             (SELECT p.status FROM payments p WHERE p.order_id = o.id

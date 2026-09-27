@@ -7,11 +7,14 @@ export type PublicUser = {
   firstName: string;
   lastName: string;
   role: "customer" | "admin";
+  phone: string | null;
+  birthDate: string | null; // "1998-05-21"
 };
 
 // Los alias "firstName" convierten snake_case (SQL) a camelCase (JS).
 const PUBLIC_USER_COLUMNS = `
-  id, email, first_name AS "firstName", last_name AS "lastName", role
+  id, email, first_name AS "firstName", last_name AS "lastName", role,
+  phone, to_char(birth_date, 'YYYY-MM-DD') AS "birthDate"
 `;
 
 export async function emailExists(email: string): Promise<boolean> {
@@ -23,8 +26,8 @@ export async function emailExists(email: string): Promise<boolean> {
 }
 
 export async function findUserWithHashByEmail(email: string) {
-  const { rows } = await pool.query<PublicUser & { passwordHash: string }>(
-    `SELECT ${PUBLIC_USER_COLUMNS}, password_hash AS "passwordHash"
+  const { rows } = await pool.query<PublicUser & { passwordHash: string; verifiedAt: Date | null }>(
+    `SELECT ${PUBLIC_USER_COLUMNS}, password_hash AS "passwordHash", verified_at AS "verifiedAt"
      FROM users WHERE email = $1`,
     [email]
   );
@@ -38,13 +41,14 @@ export async function findUserById(id: string, db: DbClient | typeof pool = pool
 
 export async function createUser(
   db: DbClient,
-  data: { email: string; passwordHash: string; firstName: string; lastName: string }
+  data: { email: string; passwordHash: string; firstName: string; lastName: string; phone: string; birthDate: string }
 ) {
+  // verified_at queda NULL: la cuenta no sirve hasta que confirme su código
   const { rows } = await db.query<PublicUser>(
-    `INSERT INTO users (email, password_hash, first_name, last_name)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, password_hash, first_name, last_name, phone, birth_date)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING ${PUBLIC_USER_COLUMNS}`,
-    [data.email, data.passwordHash, data.firstName, data.lastName]
+    [data.email, data.passwordHash, data.firstName, data.lastName, data.phone, data.birthDate]
   );
   return rows[0]!;
 }
@@ -96,4 +100,21 @@ export async function revokeRefreshTokenByHash(tokenHash: string) {
 
 export async function revokeAllUserTokens(db: DbClient, userId: string) {
   await db.query("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL", [userId]);
+}
+
+// ---------- Verificación ----------
+
+export type VerifiableUser = PublicUser & { verifiedAt: Date | null };
+
+/** FOR UPDATE opcional: serializa "reenviar código" y "verificar" del mismo usuario. */
+export async function findVerifiableByEmail(db: DbClient | typeof pool, email: string, forUpdate = false) {
+  const { rows } = await db.query<VerifiableUser>(
+    `SELECT ${PUBLIC_USER_COLUMNS}, verified_at AS "verifiedAt" FROM users WHERE email = $1 ${forUpdate ? "FOR UPDATE" : ""}`,
+    [email]
+  );
+  return rows[0] ?? null;
+}
+
+export async function markVerified(db: DbClient, userId: string) {
+  await db.query("UPDATE users SET verified_at = NOW() WHERE id = $1 AND verified_at IS NULL", [userId]);
 }

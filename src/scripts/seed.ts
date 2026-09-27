@@ -2,16 +2,13 @@ import argon2 from "argon2";
 import { pool } from "../db.js";
 
 // ---------- Tipos ----------
-type SeedCategory = {
-  name: string;
-  slug: string;
-  children?: SeedCategory[];
-};
+type SeedCategory = { name: string; slug: string; coverUrl?: string };
 
 type SeedColor = { name: string; code: string };
 
 type SeedProduct = {
   category: string; // slug de la categoría
+  gender: "unisex" | "hombre" | "mujer";
   name: string;
   slug: string;
   skuBase: string;
@@ -19,108 +16,39 @@ type SeedProduct = {
   priceCents: number;
   sizes: string[];
   colors: SeedColor[];
+  // Fotos servidas desde front/public (ej. "/products/born-to-die-blanco.jpg")
+  images?: { url: string; alt: string }[];
 };
 
 // ---------- Datos ----------
-const NEGRO: SeedColor = { name: "negro", code: "NEG" };
 const BLANCO: SeedColor = { name: "blanco", code: "BLA" };
-const GRIS: SeedColor = { name: "gris", code: "GRI" };
-const BEIGE: SeedColor = { name: "beige", code: "BEI" };
-const OLIVO: SeedColor = { name: "verde olivo", code: "VOL" };
-const MARINO: SeedColor = { name: "azul marino", code: "AZM" };
-const AZUL: SeedColor = { name: "azul", code: "AZU" };
 
+// Las 4 categorías de IVE (la migración 016 ya las crea; aquí solo nos aseguramos).
+// El orden de la lista es el orden en el home.
 const CATEGORIES: SeedCategory[] = [
-  {
-    name: "Hombre",
-    slug: "hombre",
-    children: [
-      { name: "Playeras", slug: "hombre-playeras" },
-      { name: "Sudaderas", slug: "hombre-sudaderas" },
-      { name: "Pantalones", slug: "hombre-pantalones" },
-    ],
-  },
-  {
-    name: "Mujer",
-    slug: "mujer",
-    children: [
-      { name: "Blusas", slug: "mujer-blusas" },
-      { name: "Vestidos", slug: "mujer-vestidos" },
-      { name: "Pantalones", slug: "mujer-pantalones" },
-    ],
-  },
+  { name: "T-shirts", slug: "t-shirts", coverUrl: "/products/born-to-die-blanco.jpg" },
+  { name: "Crop tops", slug: "crop-tops" },
+  { name: "Gym", slug: "gym" },
+  { name: "Sudaderas", slug: "sudaderas" },
 ];
 
 const PRODUCTS: SeedProduct[] = [
   {
-    category: "hombre-playeras",
-    name: "Playera básica",
-    slug: "playera-basica",
-    skuBase: "PLY-BAS",
-    description: "Playera de algodón 100% con corte regular.",
-    priceCents: 34900,
+    category: "t-shirts",
+    gender: "hombre",
+    name: "Playera Born to Die",
+    slug: "playera-born-to-die",
+    skuBase: "PLY-BTD",
+    description: "Playera de algodón con estampado gráfico de Born to Die al frente.",
+    priceCents: 49900,
     sizes: ["S", "M", "L", "XL"],
-    colors: [NEGRO, BLANCO, GRIS],
-  },
-  {
-    category: "hombre-playeras",
-    name: "Playera oversize",
-    slug: "playera-oversize",
-    skuBase: "PLY-OVS",
-    description: "Playera de corte holgado y hombro caído.",
-    priceCents: 44900,
-    sizes: ["S", "M", "L"],
-    colors: [NEGRO, BEIGE],
-  },
-  {
-    category: "hombre-sudaderas",
-    name: "Sudadera con capucha",
-    slug: "sudadera-con-capucha",
-    skuBase: "SUD-CAP",
-    description: "Sudadera de felpa con capucha y bolsa canguro.",
-    priceCents: 89900,
-    sizes: ["S", "M", "L", "XL"],
-    colors: [NEGRO, GRIS],
-  },
-  {
-    category: "hombre-pantalones",
-    name: "Pantalón cargo",
-    slug: "pantalon-cargo",
-    skuBase: "PAN-CRG",
-    description: "Pantalón cargo de gabardina con bolsas laterales.",
-    priceCents: 79900,
-    sizes: ["28", "30", "32", "34"],
-    colors: [OLIVO, NEGRO],
-  },
-  {
-    category: "mujer-blusas",
-    name: "Blusa de lino",
-    slug: "blusa-de-lino",
-    skuBase: "BLU-LIN",
-    description: "Blusa fresca de lino con botones al frente.",
-    priceCents: 59900,
-    sizes: ["XS", "S", "M", "L"],
-    colors: [BLANCO, BEIGE],
-  },
-  {
-    category: "mujer-vestidos",
-    name: "Vestido midi",
-    slug: "vestido-midi",
-    skuBase: "VES-MID",
-    description: "Vestido midi de caída ligera con cintura ajustable.",
-    priceCents: 99900,
-    sizes: ["XS", "S", "M", "L"],
-    colors: [NEGRO, MARINO],
-  },
-  {
-    category: "mujer-pantalones",
-    name: "Jeans mom fit",
-    slug: "jeans-mom-fit",
-    skuBase: "JEA-MOM",
-    description: "Jeans de tiro alto con corte mom fit.",
-    priceCents: 84900,
-    sizes: ["24", "26", "28", "30"],
-    colors: [AZUL, NEGRO],
+    colors: [BLANCO],
+    // El orden importa: la 1ª es la portada y la 2ª aparece al pasar el mouse en el catálogo
+    images: [
+      { url: "/products/born-to-die-blanco.jpg", alt: "Playera Born to Die, vista frontal" },
+      { url: "/products/born-to-die-espalda.jpg", alt: "Playera Born to Die, vista de la espalda" },
+      { url: "/products/born-to-die-frente-espalda.jpg", alt: "Playera Born to Die, frente y espalda" },
+    ],
   },
 ];
 
@@ -139,8 +67,8 @@ async function seed() {
 
     for (const u of USERS) {
       await client.query(
-        `INSERT INTO users (email, password_hash, first_name, last_name, role)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO users (email, password_hash, first_name, last_name, role, verified_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`, // los de prueba ya vienen verificados
         [u.email, await argon2.hash(u.password), u.firstName, u.lastName, u.role]
       );
     }
@@ -148,24 +76,18 @@ async function seed() {
     // slug -> id, para encontrar la categoría de cada producto
     const categoryIds = new Map<string, string>();
 
-    // Función recursiva: inserta una categoría y luego sus hijas
-    async function insertCategory(cat: SeedCategory, parentId: string | null) {
+    // Upsert: si la categoría ya existe (la creó la migración) solo se actualiza
+    for (const [position, cat] of CATEGORIES.entries()) {
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO categories (name, slug, parent_id)
-         VALUES ($1, $2, $3)
+        `INSERT INTO categories (name, slug, position, cover_url)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (slug) DO UPDATE
+           SET name = EXCLUDED.name, position = EXCLUDED.position,
+               cover_url = COALESCE(categories.cover_url, EXCLUDED.cover_url)
          RETURNING id`,
-        [cat.name, cat.slug, parentId]
+        [cat.name, cat.slug, position, cat.coverUrl ?? null]
       );
-      const id = rows[0].id;
-      categoryIds.set(cat.slug, id);
-
-      for (const child of cat.children ?? []) {
-        await insertCategory(child, id);
-      }
-    }
-
-    for (const cat of CATEGORIES) {
-      await insertCategory(cat, null);
+      categoryIds.set(cat.slug, rows[0].id);
     }
 
     let variantCount = 0;
@@ -177,12 +99,21 @@ async function seed() {
       }
 
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO products (category_id, name, slug, description, price_cents)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO products (category_id, gender, name, slug, description, price_cents)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
-        [categoryId, p.name, p.slug, p.description, p.priceCents]
+        [categoryId, p.gender, p.name, p.slug, p.description, p.priceCents]
       );
       const productId = rows[0].id;
+
+      // Fotos del producto (en orden)
+      for (const [position, image] of (p.images ?? []).entries()) {
+        await client.query(
+          `INSERT INTO product_images (product_id, url, alt_text, position)
+           VALUES ($1, $2, $3, $4)`,
+          [productId, image.url, image.alt, position]
+        );
+      }
 
       // Una variante por cada combinación color × talla
       for (const color of p.colors) {

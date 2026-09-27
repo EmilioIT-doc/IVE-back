@@ -13,6 +13,11 @@ const csvList = (maxItemLength: number) =>
 export const listProductsQuery = z
   .object({
     category: slug.optional(),
+    gender: z.enum(["unisex", "hombre", "mujer"]).optional(),
+    sale: z
+      .enum(["1", "true"])
+      .optional()
+      .transform((v) => v !== undefined), // ?sale=1 → solo ofertas
     size: csvList(10),
     color: csvList(30),
     minPriceCents: z.coerce.number().int().min(0).optional(),

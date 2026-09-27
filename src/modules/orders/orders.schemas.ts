@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idParam } from "../../lib/params.js";
 import { addressInputSchema } from "../addresses/addresses.schemas.js";
+import { couponCodeSchema } from "../coupons/coupons.schemas.js";
 
 export const createOrderSchema = z
   .object({
@@ -10,6 +11,7 @@ export const createOrderSchema = z
     saveAddress: z.boolean().optional().default(false),
     shippingMethod: z.enum(["standard", "express"]).default("standard"),
     paymentToken: z.string().regex(/^tok_[a-z_]+$/, "Token de pago inválido"),
+    couponCode: couponCodeSchema.optional(), // se vuelve a validar aquí: el front solo lo muestra
   })
   .refine((d) => (d.addressId ? !d.address : !!d.address), {
     message: "Manda addressId o address (solo uno)",

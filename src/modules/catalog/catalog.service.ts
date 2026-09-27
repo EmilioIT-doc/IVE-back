@@ -3,23 +3,8 @@ import { compareSizes } from "../../lib/sizes.js";
 import * as repo from "./catalog.repository.js";
 import type { ListProductsFilters } from "./catalog.schemas.js";
 
-type CategoryNode = { id: string; name: string; slug: string; children: CategoryNode[] };
-
-/** Convierte la lista plana de categorías en un árbol (padre → hijas). */
-export async function getCategoryTree(): Promise<CategoryNode[]> {
-  const rows = await repo.findAllCategories();
-  const byId = new Map<string, CategoryNode>();
-  for (const r of rows) byId.set(r.id, { id: r.id, name: r.name, slug: r.slug, children: [] });
-
-  const roots: CategoryNode[] = [];
-  for (const r of rows) {
-    const node = byId.get(r.id)!;
-    const parent = r.parentId ? byId.get(r.parentId) : undefined;
-    if (parent) parent.children.push(node);
-    else roots.push(node);
-  }
-  return roots;
-}
+/** Categorías visibles para el menú, los filtros y el home. */
+export const getCategories = repo.findAllCategories;
 
 export async function listProducts(filters: ListProductsFilters) {
   const { items, total } = await repo.listProducts(filters);
@@ -56,11 +41,10 @@ export async function getProductBySlug(slug: string) {
     name: product.name,
     description: product.description,
     priceCents: product.priceCents,
-    category: {
-      name: product.categoryName,
-      slug: product.categorySlug,
-      parent: product.parentSlug ? { name: product.parentName!, slug: product.parentSlug } : null,
-    },
+    compareAtCents: product.compareAtCents,
+    viewCount: product.viewCount,
+    gender: product.gender,
+    category: { name: product.categoryName, slug: product.categorySlug },
     images,
     colors,
     sizes,
@@ -71,5 +55,5 @@ export async function getProductBySlug(slug: string) {
 export async function getRelated(slug: string, limit: number) {
   const product = await repo.findProductBySlug(slug);
   if (!product) throw new AppError(404, "PRODUCT_NOT_FOUND", "Producto no encontrado");
-  return repo.findRelated(product.id, product.categoryId, product.parentId, limit);
+  return repo.findRelated(product.id, product.categoryId, product.gender, limit);
 }

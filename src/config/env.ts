@@ -14,6 +14,13 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, "El secreto debe tener al menos 32 caracteres"),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().positive().default(30),
+
+  // Correo (en local: Mailpit en Docker → http://localhost:8025 para ver los correos)
+  SMTP_HOST: z.string().default("localhost"),
+  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().default("IVE <no-reply@ive.store>"),
 });
 
 const parsed = envSchema.safeParse(process.env);

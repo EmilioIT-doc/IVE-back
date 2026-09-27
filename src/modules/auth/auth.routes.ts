@@ -6,6 +6,8 @@ export const authRouter = Router();
 
 authRouter.post("/check-email", controller.checkEmail);
 authRouter.post("/register", controller.register);
+authRouter.post("/verify", controller.verify);
+authRouter.post("/verification/resend", controller.resendCode);
 authRouter.post("/login", controller.login);
 authRouter.post("/refresh", controller.refresh);
 authRouter.post("/logout", controller.logout);

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import * as service from "./auth.service.js";
-import { checkEmailSchema, loginSchema, registerSchema } from "./auth.schemas.js";
+import { checkEmailSchema, loginSchema, registerSchema, resendSchema, verifySchema } from "./auth.schemas.js";
 import { REFRESH_COOKIE, clearSessionCookies, setSessionCookies } from "./auth.cookies.js";
 
 // El controlador solo traduce HTTP ↔ servicio: valida la entrada,
@@ -11,11 +11,23 @@ export async function checkEmail(req: Request, res: Response) {
   res.json(await service.checkEmail(email));
 }
 
+/** 201 → { verification }: la cuenta se creó, falta confirmar el código (todavía no hay sesión). */
 export async function register(req: Request, res: Response) {
   const input = registerSchema.parse(req.body);
-  const session = await service.register(input);
+  res.status(201).json({ verification: await service.register(input) });
+}
+
+export async function resendCode(req: Request, res: Response) {
+  const { email, channel } = resendSchema.parse(req.body);
+  res.json({ verification: await service.resendCode(email, channel) });
+}
+
+/** Código correcto → cuenta confirmada + sesión iniciada. */
+export async function verify(req: Request, res: Response) {
+  const { email, code } = verifySchema.parse(req.body);
+  const session = await service.verify(email, code);
   setSessionCookies(res, session);
-  res.status(201).json({ user: session.user });
+  res.json({ user: session.user });
 }
 
 export async function login(req: Request, res: Response) {

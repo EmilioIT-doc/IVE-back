@@ -22,6 +22,23 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   }
 };
 
+/**
+ * Si hay sesión válida la pone en req.user; si no, sigue como invitado (sin error).
+ * Para rutas públicas que muestran algo extra a quien inició sesión (p. ej. "tu reseña").
+ */
+export const optionalAuth: RequestHandler = (req, _res, next) => {
+  const token: string | undefined = req.cookies?.[ACCESS_COOKIE];
+  if (token) {
+    try {
+      const payload = verifyAccessToken(token);
+      req.user = { id: payload.sub, role: payload.role };
+    } catch {
+      // token vencido o inválido: se trata como invitado
+    }
+  }
+  next();
+};
+
 /** Solo para administradores (úsalo después de requireAuth). */
 export const requireAdmin: RequestHandler = (req, _res, next) => {
   if (req.user?.role !== "admin") return next(new AppError(403, "FORBIDDEN", "No tienes permiso"));

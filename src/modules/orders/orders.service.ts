@@ -5,6 +5,8 @@ import { shippingCostCents } from "../../lib/shipping.js";
 import * as addressesRepo from "../addresses/addresses.repository.js";
 import * as addressesService from "../addresses/addresses.service.js";
 import * as cartRepo from "../cart/cart.repository.js";
+import * as couponsRepo from "../coupons/coupons.repository.js";
+import * as couponsService from "../coupons/coupons.service.js";
 import * as repo from "./orders.repository.js";
 import type { CreateOrderInput } from "./orders.schemas.js";
 
@@ -89,15 +91,23 @@ export async function createOrder(userId: string, input: CreateOrderInput, idemp
         country: "country" in address ? address.country : "MX",
       };
 
-      // 4. Totales
+      // 4. Totales (+ cupón, validado de nuevo y con la fila BLOQUEADA para no pasarse de usos)
       const subtotalCents = lines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0);
-      const shippingCents = shippingCostCents(subtotalCents, input.shippingMethod);
-      const totalCents = subtotalCents + shippingCents;
+      const applied = input.couponCode
+        ? await couponsService.validate(client, input.couponCode, userId, subtotalCents, true)
+        : null;
+      const discountCents = applied?.discountCents ?? 0;
+      // El envío gratis se calcula sobre lo que de verdad paga (ya con descuento)
+      const shippingCents = shippingCostCents(subtotalCents - discountCents, input.shippingMethod);
+      const totalCents = subtotalCents - discountCents + shippingCents;
 
       // 5. Orden + renglones
       const orderId = await repo.insertOrder(client, {
         userId,
         subtotalCents,
+        discountCents,
+        couponId: applied?.coupon.id ?? null,
+        couponCode: applied?.coupon.code ?? null,
         shippingCents,
         totalCents,
         shippingMethod: input.shippingMethod,
@@ -121,6 +131,7 @@ export async function createOrder(userId: string, input: CreateOrderInput, idemp
       });
       for (const line of lines) await repo.decrementStock(client, line.variantId, line.quantity);
       await repo.setOrderStatus(client, orderId, "paid");
+      if (applied) await couponsRepo.incrementUses(client, applied.coupon.id);
       await cartRepo.clearItems(client, cartId!);
 
       return { order: await getOrderDetail(client, userId, orderId), replayed: false };

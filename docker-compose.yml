@@ -12,5 +12,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Correo de mentiras para desarrollo: atrapa todo lo que manda el back.
+  # Bandeja en http://localhost:8025
+  mail:
+    image: axllent/mailpit
+    container_name: ive-mail
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # bandeja web
+
 volumes:
   pgdata:
